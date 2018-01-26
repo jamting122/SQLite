@@ -91,21 +91,29 @@ public class MainActivity extends AppCompatActivity {
                     String[] content = readMessage.split("~");
                     Log.i("check", "handleMessage: "+content[0]);
                     Item item = new Item();
-                    item._id = null;
-                    item.date = content[1];
-                    item.title = content[2];
-                    item.content = content[3];
-                    item.author = content[4];
-                    item.uri = content[5];
-                    item.status = Integer.parseInt(content[6]);
+                    try {
+                        item._id = null;
+                        item.date = content[1];
+                        item.title = content[2];
+                        item.content = content[3];
+                        item.author = content[4];
+                        item.uri = content[5];
+                        item.status = Integer.parseInt(content[6]);
+                    } catch (IndexOutOfBoundsException e){}
                     if(content[0].equals("send")){
                         tmp_item.add(item);
                     } else if(content[0].equals("final")){
                         tmp_item.add(item);
                         dbHelper.unBoxing(tmp_item);
                         tmp_item.clear();
-                    } else  {
-                        dbHelper.reBoxing(tmp_item);
+                        new AlertDialog.Builder((MainActivity.this)).setTitle("동기화 요청이 들어왔습니다.").setNeutralButton("확인", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                dbHelper.reSend();
+                            }
+                        }).show();
+                    } else {
+                        dbHelper.reBoxing(item);
                         tmp_item.clear();
                     }
                     break;

@@ -91,7 +91,6 @@ public class DBHelper extends SQLiteOpenHelper{
             item.content = cursor.getString(3);
             item.author = cursor.getString(4);
             item.uri = cursor.getString(5);
-            item.status = cursor.getInt(6);
             items.add(item);
             adapter.notifyDataSetChanged();
             cursor.moveToNext();
@@ -104,6 +103,7 @@ public class DBHelper extends SQLiteOpenHelper{
         //데이터 베이스의 모든 정보를 보내기위해 어레이리스트에 담기
         SQLiteDatabase db = getReadableDatabase();
         Cursor cursor = db.rawQuery("SELECT * FROM SAVE", null);
+        cursor.moveToFirst();
         while(cursor.moveToNext()){
             StringBuilder stringBuilder = new StringBuilder("");
             if(cursor.isLast()){stringBuilder.append("final~");}
@@ -123,7 +123,6 @@ public class DBHelper extends SQLiteOpenHelper{
             stringBuilder.append("~");
             ((MainActivity) MainActivity.mContext).sendMessage(stringBuilder.toString());
         }
-        db.execSQL("DELETE FROM SAVE");
         db.close();
     }
 
@@ -131,6 +130,7 @@ public class DBHelper extends SQLiteOpenHelper{
     public void unBoxing (ArrayList<Item> items) {
         SQLiteDatabase db = getWritableDatabase();
         for(int i =0;i<items.size();i++){
+            Log.i("받은 내용물 확인", "받은 내용물 확인: "+items.get(i).title);
             if(items.get(i).status==2){
                 db.execSQL("INSERT INTO BOOK VALUES (null, '" + items.get(i).date + "', '" + items.get(i).title + "', '" + items.get(i).content + "', '" + items.get(i).author + "', '" + items.get(i).uri + "');");
             }
@@ -141,13 +141,19 @@ public class DBHelper extends SQLiteOpenHelper{
                 db.execSQL("DELETE FROM BOOK WHERE title='" + items.get(i).title + "';");
             }
         }
+        db.close();
+        return;
+    }
+
+    public void reSend (){
+        SQLiteDatabase db = getReadableDatabase();
         //받아온 데이터 처리 후 반대쪽에다가 처리할 데이터 넘겨주기
         Cursor cursor = db.rawQuery("SELECT * FROM SAVE", null);
         while(cursor.moveToNext()){
             StringBuilder stringBuilder = new StringBuilder("");
             if(cursor.isLast()){stringBuilder.append("finish~");}
             else{stringBuilder.append("send~");}
-            Log.i("Check", "Boxing: "+stringBuilder.toString());
+            Log.i("Check", "보내는 내용물 확인: "+cursor.getString(1));
             stringBuilder.append(cursor.getString(1));
             stringBuilder.append("~");
             stringBuilder.append(cursor.getString(2));
@@ -164,23 +170,21 @@ public class DBHelper extends SQLiteOpenHelper{
         }
         db.execSQL("DELETE FROM SAVE");
         db.close();
-
-        return;
     }
 
-    public void reBoxing (ArrayList<Item> items){
+    public void reBoxing (Item items){
         SQLiteDatabase db = getWritableDatabase();
-        for(int i =0;i<items.size();i++){
-            if(items.get(i).status==2){
-                db.execSQL("INSERT INTO BOOK VALUES (null, '" + items.get(i).date + "', '" + items.get(i).title + "', '" + items.get(i).content + "', '" + items.get(i).author + "', '" + items.get(i).uri + "');");
-            }
-            else if(items.get(i).status==1){
-                db.execSQL("UPDATE BOOK SET uri = '" + items.get(i).uri + "' WHERE title = '" + items.get(i).title + "';");
-            }
-            else {
-                db.execSQL("DELETE FROM BOOK WHERE title='" + items.get(i).title + "';");
-            }
+        if(items.status==2){
+            db.execSQL("INSERT INTO BOOK VALUES (null, '" + items.date + "', '" + items.title + "', '" + items.content + "', '" + items.author + "', '" + items.uri + "');");
         }
+        else if(items.status==1){
+            db.execSQL("UPDATE BOOK SET uri = '" + items.uri + "' WHERE title = '" + items.title + "';");
+        }
+        else {
+            db.execSQL("DELETE FROM BOOK WHERE title='" + items.title + "';");
+        }
+
+        db.execSQL("DELETE FROM SAVE");
         db.close();
         return;
     }

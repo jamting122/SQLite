@@ -57,7 +57,6 @@ public class ListViewAdapter extends BaseAdapter {
         TextView content = (TextView) convertView.findViewById(R.id.content);
         TextView author = (TextView) convertView.findViewById(R.id.author);
         TextView uri = (TextView) convertView.findViewById(R.id.uri);
-        TextView status = (TextView) convertView.findViewById(R.id.status);
 
         Item i = listViewItemList.get(position);
         _id.setText(i._id);
@@ -66,7 +65,6 @@ public class ListViewAdapter extends BaseAdapter {
         content.setText(i.content);
         date.setText(i.date);
         uri.setText(i.uri);
-        status.setText(""+i.status);
 
         return convertView;
 
