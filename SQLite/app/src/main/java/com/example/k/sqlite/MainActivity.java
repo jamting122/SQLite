@@ -87,35 +87,8 @@ public class MainActivity extends AppCompatActivity {
                 case Constants.MESSAGE_READ:
                     byte[] readBuf = (byte[]) msg.obj;
                     // construct a string from the valid bytes in the buffer
-                    String readMessage = new String(readBuf, 0, msg.arg1);
-                    String[] content = readMessage.split("~");
-                    Log.i("check", "handleMessage: "+content[0]);
-                    Item item = new Item();
-                    try {
-                        item._id = null;
-                        item.date = content[1];
-                        item.title = content[2];
-                        item.content = content[3];
-                        item.author = content[4];
-                        item.uri = content[5];
-                        item.status = Integer.parseInt(content[6]);
-                    } catch (IndexOutOfBoundsException e){}
-                    if(content[0].equals("send")){
-                        tmp_item.add(item);
-                    } else if(content[0].equals("final")){
-                        tmp_item.add(item);
-                        dbHelper.unBoxing(tmp_item);
-                        tmp_item.clear();
-                        new AlertDialog.Builder((MainActivity.this)).setTitle("동기화 요청이 들어왔습니다.").setNeutralButton("확인", new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-                                dbHelper.reSend();
-                            }
-                        }).show();
-                    } else {
-                        dbHelper.reBoxing(item);
-                        tmp_item.clear();
-                    }
+                    String readMessage = new String(readBuf);
+                    dbHelper.checkBoxing(readMessage);
                     break;
                 case Constants.MESSAGE_DEVICE_NAME:
                     //save the connected device's name
@@ -265,7 +238,7 @@ public class MainActivity extends AppCompatActivity {
         btn_sync.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                dbHelper.Boxing();
+                dbHelper.sendBoxing("start");
             }
         });
 

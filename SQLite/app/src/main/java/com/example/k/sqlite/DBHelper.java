@@ -98,17 +98,23 @@ public class DBHelper extends SQLiteOpenHelper{
         db.close();
     }
 
-    //데이터를 보내기위한 box작업
-    public void Boxing (){
-        //데이터 베이스의 모든 정보를 보내기위해 어레이리스트에 담기
+    //데이터를 한개씩 보내고, 받았다는 신호가 들어오면 다음 데이터 보내기
+    public void sendBoxing (String string){
+        Log.i("check", "sendBoxing: "+string);
+        if(string.equals("start")){}
+        else{
+            SQLiteDatabase db = getWritableDatabase();
+            Cursor cursor = db.rawQuery("SELECT * FROM SAVE",null);
+            cursor.moveToNext();
+            db.execSQL("DELETE FROM SAVE WHERE title='" + cursor.getString(2) + "';");
+            db.close();
+        }
+        StringBuilder stringBuilder = new StringBuilder("");
         SQLiteDatabase db = getReadableDatabase();
         Cursor cursor = db.rawQuery("SELECT * FROM SAVE", null);
-        cursor.moveToFirst();
-        while(cursor.moveToNext()){
-            StringBuilder stringBuilder = new StringBuilder("");
-            if(cursor.isLast()){stringBuilder.append("final~");}
-            else{stringBuilder.append("send~");}
-            Log.i("Check", "Boxing: "+stringBuilder.toString());
+        cursor.moveToNext();
+        if (cursor.getCount() == 1) {
+            stringBuilder.append("final~");
             stringBuilder.append(cursor.getString(1));
             stringBuilder.append("~");
             stringBuilder.append(cursor.getString(2));
@@ -121,39 +127,11 @@ public class DBHelper extends SQLiteOpenHelper{
             stringBuilder.append("~");
             stringBuilder.append(cursor.getString(6));
             stringBuilder.append("~");
-            ((MainActivity) MainActivity.mContext).sendMessage(stringBuilder.toString());
-        }
-        db.close();
-    }
-
-    //받은 데이터를 처리하기 위한 Unboxing 작업
-    public void unBoxing (ArrayList<Item> items) {
-        SQLiteDatabase db = getWritableDatabase();
-        for(int i =0;i<items.size();i++){
-            Log.i("받은 내용물 확인", "받은 내용물 확인: "+items.get(i).title);
-            if(items.get(i).status==2){
-                db.execSQL("INSERT INTO BOOK VALUES (null, '" + items.get(i).date + "', '" + items.get(i).title + "', '" + items.get(i).content + "', '" + items.get(i).author + "', '" + items.get(i).uri + "');");
-            }
-            else if(items.get(i).status==1){
-                db.execSQL("UPDATE BOOK SET uri = '" + items.get(i).uri + "' WHERE title = '" + items.get(i).title + "';");
-            }
-            else {
-                db.execSQL("DELETE FROM BOOK WHERE title='" + items.get(i).title + "';");
-            }
-        }
-        db.close();
-        return;
-    }
-
-    public void reSend (){
-        SQLiteDatabase db = getReadableDatabase();
-        //받아온 데이터 처리 후 반대쪽에다가 처리할 데이터 넘겨주기
-        Cursor cursor = db.rawQuery("SELECT * FROM SAVE", null);
-        while(cursor.moveToNext()){
-            StringBuilder stringBuilder = new StringBuilder("");
-            if(cursor.isLast()){stringBuilder.append("finish~");}
-            else{stringBuilder.append("send~");}
-            Log.i("Check", "보내는 내용물 확인: "+cursor.getString(1));
+            db.execSQL("DELETE FROM SAVE");
+        } else if (cursor.getCount() == 0) {
+            return;
+        } else {
+            stringBuilder.append("send~");
             stringBuilder.append(cursor.getString(1));
             stringBuilder.append("~");
             stringBuilder.append(cursor.getString(2));
@@ -166,26 +144,34 @@ public class DBHelper extends SQLiteOpenHelper{
             stringBuilder.append("~");
             stringBuilder.append(cursor.getString(6));
             stringBuilder.append("~");
-            ((MainActivity) MainActivity.mContext).sendMessage(stringBuilder.toString());
         }
-        db.execSQL("DELETE FROM SAVE");
+        Log.i("check", "sendBoxing: "+stringBuilder.toString());
+        ((MainActivity) MainActivity.mContext).sendMessage(stringBuilder.toString());
         db.close();
     }
 
-    public void reBoxing (Item items){
-        SQLiteDatabase db = getWritableDatabase();
-        if(items.status==2){
-            db.execSQL("INSERT INTO BOOK VALUES (null, '" + items.date + "', '" + items.title + "', '" + items.content + "', '" + items.author + "', '" + items.uri + "');");
+    //데이터를 받았을 때, 받은것을 처리하고 다시 보내주어서 처리하기
+    public void checkBoxing (String string) {
+        SQLiteDatabase db = getReadableDatabase();
+        String[] strings = string.split("~");
+        if(strings[0].equals("send")){
+            if(strings[6].equals("2")){
+                db.execSQL("INSERT INTO BOOK VALUES (null, '" + strings[1] + "', '" + strings[2] + "', '" + strings[3] + "', '" + strings[4] + "', '" + strings[5] + "');");
+            } else if (strings[6].equals("1")) {
+                db.execSQL("UPDATE BOOK SET uri = '" + strings[5] + "' WHERE title = '" + strings[2] + "';");
+            } else {
+                db.execSQL("DELETE FROM BOOK WHERE title='" + strings[2] + "';");
+            } ((MainActivity) MainActivity.mContext).sendMessage("check~");
+        } else if (strings[0].equals("check")) {
+            sendBoxing("keep");
+        } else {
+            if(strings[6].equals("2")){
+                db.execSQL("INSERT INTO BOOK VALUES (null, '" + strings[1] + "', '" + strings[2] + "', '" + strings[3] + "', '" + strings[4] + "', '" + strings[5] + "');");
+            } else if (strings[6].equals("1")) {
+                db.execSQL("UPDATE BOOK SET uri = '" + strings[5] + "' WHERE title = '" + strings[2] + "';");
+            } else {
+                db.execSQL("DELETE FROM BOOK WHERE title='" + strings[2] + "';");
+            } sendBoxing("start");
         }
-        else if(items.status==1){
-            db.execSQL("UPDATE BOOK SET uri = '" + items.uri + "' WHERE title = '" + items.title + "';");
-        }
-        else {
-            db.execSQL("DELETE FROM BOOK WHERE title='" + items.title + "';");
-        }
-
-        db.execSQL("DELETE FROM SAVE");
-        db.close();
-        return;
     }
 }
