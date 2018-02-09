@@ -5,8 +5,11 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.util.Log;
-import android.widget.Toast;
 
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 
@@ -36,6 +39,7 @@ public class DBHelper extends SQLiteOpenHelper{
     public void onUpgrade (SQLiteDatabase db,int oldVersion,int newVersion){
         //new verson update
         db.execSQL("DROP TABLE IF EXISTS BOOK");
+        db.execSQL("DROP TABLE IF EXISTS SAVE");
         onCreate(db);
     }
 
@@ -56,12 +60,6 @@ public class DBHelper extends SQLiteOpenHelper{
         //delete row same title
         db.execSQL("DELETE FROM BOOK WHERE title='" + title + "';");
         db.execSQL("INSERT INTO SAVE VALUES (null, '" + date + "', '" + title + "', '" + content + "', '" + author + "', '" + uri + "', '" + 0 + "');");
-        db.close();
-    }
-
-    public void deleteAll(){
-        SQLiteDatabase db = getWritableDatabase();
-        db.execSQL("DELETE FROM BOOK");
         db.close();
     }
 
@@ -152,11 +150,31 @@ public class DBHelper extends SQLiteOpenHelper{
 
     //데이터를 받았을 때, 받은것을 처리하고 다시 보내주어서 처리하기
     public void checkBoxing (String string) {
+        Log.i("check", "checkBoxing: "+string);
         SQLiteDatabase db = getReadableDatabase();
+        string = string.toString();
         String[] strings = string.split("~");
+        if(strings[0].equals("sendaudio")){
+            try{
+                File file = File.createTempFile(strings[1],"mp3");
+                file.deleteOnExit();
+                String uri = file.getAbsolutePath();
+                Log.i("check", "나오긴함?: "+uri);
+                byte[] buffer = strings[2].getBytes();
+                FileOutputStream buf = new FileOutputStream(file);
+                buf.write(buffer);
+                buf.close();
+                db.execSQL("UPDATE BOOK SET uri = '" + uri + "' WHERE title = '" + strings[1] + "';");
+            } catch (IOException e){}
+            db.close();
+            ((MainActivity) MainActivity.mContext).sendMessage("check~");
+            return;
+        }
         if(strings[0].equals("send")){
             if(strings[6].equals("2")){
                 db.execSQL("INSERT INTO BOOK VALUES (null, '" + strings[1] + "', '" + strings[2] + "', '" + strings[3] + "', '" + strings[4] + "', '" + strings[5] + "');");
+                ((MainActivity) MainActivity.mContext).sendMessage("audio~"+ strings[5] + "~" + strings[2]);
+                return;
             } else if (strings[6].equals("1")) {
                 db.execSQL("UPDATE BOOK SET uri = '" + strings[5] + "' WHERE title = '" + strings[2] + "';");
             } else {
@@ -164,14 +182,40 @@ public class DBHelper extends SQLiteOpenHelper{
             } ((MainActivity) MainActivity.mContext).sendMessage("check~");
         } else if (strings[0].equals("check")) {
             sendBoxing("keep");
+        } else if (strings[0].equals("audio")){
+            sendAudio(strings[1],strings[2]);
         } else {
             if(strings[6].equals("2")){
                 db.execSQL("INSERT INTO BOOK VALUES (null, '" + strings[1] + "', '" + strings[2] + "', '" + strings[3] + "', '" + strings[4] + "', '" + strings[5] + "');");
+                ((MainActivity) MainActivity.mContext).sendMessage("audio~"+ strings[5] + "~" + strings[2]);
             } else if (strings[6].equals("1")) {
                 db.execSQL("UPDATE BOOK SET uri = '" + strings[5] + "' WHERE title = '" + strings[2] + "';");
             } else {
                 db.execSQL("DELETE FROM BOOK WHERE title='" + strings[2] + "';");
             } sendBoxing("start");
+        }
+        db.close();
+    }
+
+    //오디오 파일 보내기
+    public void sendAudio (String path,String title){
+        Log.i("check", "sendAudio: " + path + "AND" + title);
+        try {
+            File audio = new File(path);
+            int size = (int) audio.length();
+            byte[] bytes = new byte[size];
+            BufferedInputStream buf = new BufferedInputStream(new FileInputStream(audio));
+            buf.read(bytes,0,bytes.length);
+            buf.close();
+            StringBuilder stringBuilder = new StringBuilder("");
+            stringBuilder.append("sendaudio~");
+            stringBuilder.append(title);
+            stringBuilder.append("~");
+            stringBuilder.append(bytes);
+            stringBuilder.append("~");
+            ((MainActivity) MainActivity.mContext).sendMessage(stringBuilder.toString());
+        } catch (IOException e){
+            e.printStackTrace();
         }
     }
 }

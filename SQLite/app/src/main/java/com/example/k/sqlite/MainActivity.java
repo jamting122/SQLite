@@ -8,11 +8,13 @@ import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.media.AudioManager;
+import android.media.MediaPlayer;
+import android.net.Uri;
 import android.os.Handler;
 import android.os.Message;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -20,15 +22,20 @@ import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
+import android.widget.ProgressBar;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity{
+
+    //오디오재생을 위한 객체선언
+    private MediaPlayer mediaPlayer;
 
     //Bluetooth On/Off
     Boolean bt = false;
@@ -137,14 +144,15 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        mContext = this;
+        ProgressBar progressBar;
 
+        mContext = this;
         //Bluetooth Adapter
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         //BluetoothService
         mBluetoothService = new BluetoothService(this,mHandler);
 
-        dbHelper = new DBHelper(getApplicationContext(), "BOOK.db", null, 2);
+        dbHelper = new DBHelper(getApplicationContext(), "BOOK.db", null, 6);
 
         //connect listview and listviewadapter
         final ArrayList<Item> items = new ArrayList<>();
@@ -161,7 +169,7 @@ public class MainActivity extends AppCompatActivity {
         long now = System.currentTimeMillis();
         Date date = new Date(now);
         //time format
-        final SimpleDateFormat simpleDateFormat = new SimpleDateFormat("MM/DD HH시mm분");
+        final SimpleDateFormat simpleDateFormat = new SimpleDateFormat("MM/dd HH시mm분");
         tvdate.setText(simpleDateFormat.format(date));
 
         //Spinner
@@ -226,7 +234,7 @@ public class MainActivity extends AppCompatActivity {
         btn_uplord.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
                 intent.addCategory(Intent.CATEGORY_OPENABLE);
                 intent.setType("audio/*");
                 startActivityForResult(intent,0);
@@ -239,15 +247,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 dbHelper.sendBoxing("start");
-            }
-        });
-
-        //delete All DB
-        Button btn_dAll = (Button)findViewById(R.id.delAll);
-        btn_dAll.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                dbHelper.deleteAll();
+                adapter.notifyDataSetChanged();
             }
         });
 
@@ -275,6 +275,7 @@ public class MainActivity extends AppCompatActivity {
                     public void onClick(DialogInterface dialog, int which) {
                         dbHelper.delete(items.get(position).date,items.get(position).title,items.get(position).content,items.get(position).author,tvuri.getText().toString());
                         dbHelper.getResult(items,adapter);
+                        adapter.notifyDataSetChanged();
                         return;
                     }
                 });
@@ -282,6 +283,33 @@ public class MainActivity extends AppCompatActivity {
                 a.show();
             }
         });
+
+        listview.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
+            @Override
+            public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
+                try {
+                    playAudio(items.get(position).uri);
+                } catch (Exception e) {}
+                return true;
+            }
+        });
+    }
+
+    /*
+    * 오디오 재생을 위해서
+    * */
+    public void playAudio(String path){
+        try {
+            Uri uri = Uri.parse(path);
+            MediaPlayer mediaPlayer = new MediaPlayer();
+            mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
+            mediaPlayer.setDataSource(getApplicationContext(),uri);
+            mediaPlayer.prepare();
+            mediaPlayer.start();
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     /*
@@ -290,7 +318,6 @@ public class MainActivity extends AppCompatActivity {
     *  */
     public void onStart(){
         super.onStart();
-
         if(!mBluetoothAdapter.isEnabled()){
             Intent enableIntent = new Intent (BluetoothAdapter.ACTION_REQUEST_ENABLE);
             startActivityForResult(enableIntent,REQUEST_ENABLE_BT);
@@ -312,7 +339,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onResume() {
         super.onResume();
-
         // Performing this check in onResume() covers the case in which BT was
         // not enabled during onStart(), so we were paused to enable it...
         // onResume() will be called when ACTION_REQUEST_ENABLE activity returns.
@@ -329,7 +355,8 @@ public class MainActivity extends AppCompatActivity {
         switch (requestCode){
             case 0:
                 if(resultCode == Activity.RESULT_OK){
-                    tvuri.setText(data.getData().toString());
+                    Uri uri = data.getData();
+                    tvuri.setText(uri.toString());
                 } else {}
                 break;
             case REQUEST_CONNECT_DEVICE:
@@ -362,7 +389,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    //아이템 보내기
+    //리스트 보내기
     public void sendMessage (String message){
         if(mBluetoothService.getState() != BluetoothService.STATE_CONNECTED) {
             Toast.makeText(this,"블루투스가 연결되어 있지 않습니다.",Toast.LENGTH_SHORT).show();
